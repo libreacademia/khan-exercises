@@ -4,6 +4,7 @@
 
 import os
 import sys
+import linecache
 from HTMLParser import HTMLParser
 # from htmlentitydefs import name2codepoint
 
@@ -11,15 +12,44 @@ from HTMLParser import HTMLParser
 # create a subclass and override the handler methods
 class MyHTMLParser(HTMLParser):
 
-    #def handle_starttag(self, tag, attrs):
-       # print "Encountered a start tag:", tag
+    fileName = ''
+    output = []
+    parsingTitleTag = False
 
-    #def handle_endtag(self, tag):
-        # print "Encountered an end tag :", tag
+    def get_output(self):
+        jsonString = "{\n"
+        for value in self.output:
+            jsonString += '    "' + value + '" : "' + value + '",\n'
+        jsonString += "}\n"
+        return jsonString
+
+    def set_fileName(self, fname):
+        self.fileName = fname
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == 'p':
+            self.extract_words( linecache.getline(self.fileName, self.getpos()[0]) )
+        elif tag.lower() == 'title':
+            self.parsingTitleTag = True
+
+    def handle_endtag(self, tag):
+        self.parsingTitleTag = False
 
     def handle_data(self, data):
-        if (data != ''):
-            print "Encountered some data  :", data
+        if self.parsingTitleTag:
+            print data + "####"
+            self.output.append(data)
+
+    def extract_words(self, s):
+        s = s[s.find('>') + 1:]
+        while s.find('<code') >= 0 :
+            sentence = s[:s.find('<code')]
+            self.output.append( sentence )
+            s = s[s.find('</code>') + len('</code>'):]
+        sentence = s[:s.find('</p>')]
+        self.output.append(sentence)
+        empty = True
+
 
 
 def createDirIfNotExists(dir):
@@ -41,15 +71,12 @@ outputPath = dictPath + '/' + culture
 createDirIfNotExists(dictPath)
 createDirIfNotExists(outputPath)
 
-for arg in sys.argv:
-    print arg
-
 for fname in dirList:
     fileName = os.path.splitext(outputPath + '/' + fname)[0] + '.json'
-    file = open(fileName, 'w+')
-
-
-file = open('../exercises/absolute_value.html', 'r')
-# instantiate the parser and fed it some HTML
-parser = MyHTMLParser()
-parser.feed(file.read())
+    file = open('../exercises/' + fname, 'r')
+    print "---- " + file.name + "----"
+    parser = MyHTMLParser()
+    parser.set_fileName(file.name)
+    parser.feed(file.read())
+    print parser.get_output()
+    break
